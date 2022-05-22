@@ -10,21 +10,21 @@ import (
 )
 
 func main() {
-	watchPath := getWatchPath()
-	toPath := getToPath()
+	sourcePath := sourcePath()
+	destinationPath := destinationPath()
 
 	// Get Files in watched directory
-	files, err1 := ioutil.ReadDir(watchPath)
+	files, err1 := ioutil.ReadDir(sourcePath)
 
 	if err1 != nil {
 		fmt.Println(err1)
 		return
 	}
 
-	// Get fileTypes for directories and make in toPath
+	// Get fileTypes for directories and make in destination directory
 	fileTypes := getExtensionsFound(files)
 
-	err2 := makeNeededDirectories(toPath, fileTypes)
+	err2 := makeNeededDirectories(destinationPath, fileTypes)
 
 	if err2 != nil {
 		fmt.Println(err2)
@@ -38,17 +38,18 @@ func main() {
 		if mode.IsRegular() {
 			dirName, _ := getTypeNameFromExtension(filepath.Ext(sourceFile.Name()))
 
-			oldPath := watchPath + "/" + sourceFile.Name()
+			oldPath := sourcePath + "/" + sourceFile.Name()
 
-			newPath := toPath + dirName + "/" + sourceFile.Name()
+			newPath := destinationPath + dirName + "/" + sourceFile.Name()
 
-			source, err := ioutil.ReadFile(oldPath)
+			sourceContents, err := ioutil.ReadFile(oldPath)
+
 			if err != nil {
 				fmt.Println(err2)
 				continue
 			}
 
-			err = ioutil.WriteFile(newPath, source, os.ModePerm)
+			err = ioutil.WriteFile(newPath, sourceContents, os.ModePerm)
 
 			if err != nil {
 				fmt.Println(err2)
@@ -96,13 +97,13 @@ func contains(arr []string, value string) bool {
 	return false
 }
 
-func getWatchPath() string {
+func sourcePath() string {
 	homeDir, _ := os.UserHomeDir()
 	relativePath := "/test-go/"
 	return homeDir + relativePath
 }
 
-func getToPath() string {
+func destinationPath() string {
 	homeDir, _ := os.UserHomeDir()
 	relativePath := "/test-go-move-to/"
 	return homeDir + relativePath
