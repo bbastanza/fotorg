@@ -44,24 +44,18 @@ func main() {
 
 			source, err := ioutil.ReadFile(oldPath)
 			if err != nil {
-				fmt.Println("ioutil.ReadFile")
 				fmt.Println(err2)
-				return
+				continue
 			}
 
 			err = ioutil.WriteFile(newPath, source, os.ModePerm)
 
 			if err != nil {
-				fmt.Println("ioutil.WriteFile")
 				fmt.Println(err2)
-				return
+				continue
 			}
 
 		}
-		// writeDir := filepath.Ext(file.Name())[:1]
-
-		// writePath, _ := os.Stat(toPath + writeDir)
-
 	}
 }
 
