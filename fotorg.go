@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,19 +13,67 @@ func main() {
 	watchPath := getWatchPath()
 	toPath := getToPath()
 
-	_, err := makeNeededDirectories(toPath, getExtensionsFound(watchPath))
+	// Get Files in watched directory
+	files, err1 := ioutil.ReadDir(watchPath)
 
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println(err)
+	if err1 != nil {
+		fmt.Println(err1)
 		return
 	}
 
+	// Get fileTypes for directories and make in toPath
+	fileTypes := getExtensionsFound(files)
+
+	err2 := makeNeededDirectories(toPath, fileTypes)
+
+	if err2 != nil {
+		fmt.Println(err2)
+		return
+	}
+
+	for _, sourceFile := range files {
+
+		// check that the file is a regular file
+		mode := sourceFile.Mode()
+		if mode.IsRegular() {
+			dirName, _ := getTypeNameFromExtension(filepath.Ext(sourceFile.Name()))
+
+			oldPath := watchPath + "/" + sourceFile.Name()
+
+			newPath := toPath + dirName + "/" + sourceFile.Name()
+
+			source, err := ioutil.ReadFile(oldPath)
+			if err != nil {
+				fmt.Println("ioutil.ReadFile")
+				fmt.Println(err2)
+				return
+			}
+
+			err = ioutil.WriteFile(newPath, source, os.ModePerm)
+
+			if err != nil {
+				fmt.Println("ioutil.WriteFile")
+				fmt.Println(err2)
+				return
+			}
+
+		}
+		// writeDir := filepath.Ext(file.Name())[:1]
+
+		// writePath, _ := os.Stat(toPath + writeDir)
+
+	}
 }
 
-func getExtensionsFound(watchPath string) []string {
-	files, _ := ioutil.ReadDir(watchPath)
+func getTypeNameFromExtension(ext string) (string, error) {
+	if len(ext) < 2 {
+		return ext, errors.New("Extension too short " + ext)
+	}
 
+	return ext[1:], nil
+}
+
+func getExtensionsFound(files []fs.FileInfo) []string {
 	fileExtensionsFound := make([]string, 0)
 
 	for _, item := range files {
@@ -34,10 +83,10 @@ func getExtensionsFound(watchPath string) []string {
 			continue
 		}
 
-		extension := fullExtension[1:]
+		ext, _ := getTypeNameFromExtension(fullExtension)
 
-		if !contains(fileExtensionsFound, extension) {
-			fileExtensionsFound = append(fileExtensionsFound, extension)
+		if !contains(fileExtensionsFound, ext) {
+			fileExtensionsFound = append(fileExtensionsFound, ext)
 		}
 	}
 
@@ -65,7 +114,7 @@ func getToPath() string {
 	return homeDir + relativePath
 }
 
-func makeNeededDirectories(dirPath string, extensionNames []string) (bool, error) {
+func makeNeededDirectories(dirPath string, extensionNames []string) error {
 	// get all files in the directory we are moving to
 	files, _ := ioutil.ReadDir(dirPath)
 
@@ -96,12 +145,12 @@ func makeNeededDirectories(dirPath string, extensionNames []string) (bool, error
 
 	for _, dirName := range directoriesToMake {
 		if contains(currentNonDirList, dirName) {
-			return false, errors.New("File already exists with name of proposed directory " + dirName)
+			return errors.New("File already exists with name of proposed directory " + dirName)
 		} else {
 			os.Mkdir(dirPath+dirName, os.ModePerm)
 			fmt.Println("Created directory " + dirName)
 			// make the directory
 		}
 	}
-	return true, nil
+	return nil
 }
