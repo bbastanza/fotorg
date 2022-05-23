@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,9 +10,21 @@ import (
 	"path/filepath"
 )
 
+type Config struct {
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+}
+
 func main() {
-	sourcePath := sourcePath()
-	destinationPath := destinationPath()
+	config, err := getConfig()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	sourcePath := config.Source
+	destinationPath := config.Destination
 
 	// Get Files in watched directory
 	files, err1 := ioutil.ReadDir(sourcePath)
@@ -97,21 +110,9 @@ func contains(arr []string, value string) bool {
 	return false
 }
 
-func sourcePath() string {
-	homeDir, _ := os.UserHomeDir()
-	relativePath := "/test-go/"
-	return homeDir + relativePath
-}
-
-func destinationPath() string {
-	homeDir, _ := os.UserHomeDir()
-	relativePath := "/test-go-move-to/"
-	return homeDir + relativePath
-}
-
-func makeNeededDirectories(dirPath string, extensionNames []string) error {
+func makeNeededDirectories(destPath string, extensionNames []string) error {
 	// get all files in the directory we are moving to
-	files, _ := ioutil.ReadDir(dirPath)
+	files, _ := ioutil.ReadDir(destPath)
 
 	// initialize empty slice to hold directory names;
 	currentDirList := make([]string, 0)
@@ -142,10 +143,41 @@ func makeNeededDirectories(dirPath string, extensionNames []string) error {
 		if contains(currentNonDirList, dirName) {
 			return errors.New("File already exists with name of proposed directory " + dirName)
 		} else {
-			os.Mkdir(dirPath+dirName, os.ModePerm)
+			os.Mkdir(destPath+dirName, os.ModePerm)
 			fmt.Println("Created directory " + dirName)
 			// make the directory
 		}
 	}
+
 	return nil
 }
+
+func getConfig() (Config, error) {
+	homeDir, _ := os.UserHomeDir()
+
+	configPath := homeDir + "/.config/fotorg/config.json"
+
+	config, err := ioutil.ReadFile(configPath)
+
+	if err != nil {
+		return Config{}, err
+	}
+
+	data := Config{}
+
+	_ = json.Unmarshal([]byte(config), &data)
+
+	return data, nil
+}
+
+// func sourcePath() string {
+// 	homeDir, _ := os.UserHomeDir()
+// 	relativePath := "/test-go/"
+// 	return homeDir + relativePath
+// }
+
+// func destinationPath() string {
+// 	homeDir, _ := os.UserHomeDir()
+// 	relativePath := "/test-go-move-to/"
+// 	return homeDir + relativePath
+// }
