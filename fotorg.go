@@ -17,6 +17,7 @@ import (
 // TODO Ability for config paths to have / at the end or not. Just a little smarter
 // TODO break project into files that make sense
 // TODO add config items for naming types and add ability to add --option to replace config with
+// TODO clean up all this bogus string concatinations
 
 type Config struct {
 	Source      string `json:"source"`
@@ -66,7 +67,6 @@ func main() {
 			oldPath := sourcePath + "/" + sourceFile.Name()
 
 			newPath := destinationPath + "/" + folderName + "/" + dirName + "/" + sourceFile.Name()
-			fmt.Println("writing " + folderName + "/" + dirName + "/" + sourceFile.Name())
 
 			sourceContents, err := ioutil.ReadFile(oldPath)
 
