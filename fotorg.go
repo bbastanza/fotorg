@@ -8,7 +8,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
+
+// TODO Make the parent folder with format of year_month_dayGivenName ie 22_5_27_TestFolderName
+// ---- Get Date + Arg1... if no arg 1 ask for the name
+// TODO Ability for config paths to have / at the end or not. Just a little smarter
+// TODO break project into files that make sense
+// TODO add config items for naming types and add ability to add --option to replace config with
 
 type Config struct {
 	Source      string `json:"source"`
@@ -19,28 +27,32 @@ func main() {
 	config, err := getConfig()
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error reading config file...")
 		return
 	}
 
+	// get parent folder and source folder from config
 	sourcePath := config.Source
 	destinationPath := config.Destination
+
+	args := os.Args
+	folderName := buildParentFolderName(args)
 
 	// Get Files in watched directory
 	files, err1 := ioutil.ReadDir(sourcePath)
 
 	if err1 != nil {
-		fmt.Println(err1)
+		fmt.Println("Error reading files from source directory...")
 		return
 	}
 
 	// Get fileTypes for directories and make in destination directory
 	fileTypes := getExtensionsFound(files)
 
-	err2 := makeNeededDirectories(destinationPath, fileTypes)
+	err2 := makeNeededDirectories(destinationPath+"/", fileTypes, folderName)
 
 	if err2 != nil {
-		fmt.Println(err2)
+		fmt.Println("Error making directories...")
 		return
 	}
 
@@ -53,22 +65,43 @@ func main() {
 
 			oldPath := sourcePath + "/" + sourceFile.Name()
 
-			newPath := destinationPath + dirName + "/" + sourceFile.Name()
+			newPath := destinationPath + "/" + folderName + "/" + dirName + "/" + sourceFile.Name()
+			fmt.Println("writing " + folderName + "/" + dirName + "/" + sourceFile.Name())
 
 			sourceContents, err := ioutil.ReadFile(oldPath)
 
 			if err != nil {
-				fmt.Println(err2)
+				fmt.Println("Error reading file contents...", sourceFile.Name())
 				continue
 			}
 
 			err = ioutil.WriteFile(newPath, sourceContents, os.ModePerm)
 
 			if err != nil {
-				fmt.Println(err2)
+				fmt.Println("Error writing file contents...", sourceFile.Name())
 				continue
 			}
+		}
+	}
+}
 
+func buildParentFolderName(args []string) string {
+	date := time.Now().Format("06_01_02_")
+
+	if len(args) > 1 {
+		return date + args[1]
+	}
+
+	var name string
+
+	for {
+		fmt.Print("Enter a folder name: ")
+		fmt.Scanf("%s", &name)
+
+		name = strings.Trim(name, " ")
+
+		if len(name) > 0 {
+			return date + name
 		}
 	}
 }
@@ -110,7 +143,12 @@ func contains(arr []string, value string) bool {
 	return false
 }
 
-func makeNeededDirectories(destPath string, extensionNames []string) error {
+func makeNeededDirectories(destPath string, extensionNames []string, folderName string) error {
+
+	destPath = destPath + folderName + "/"
+
+	os.Mkdir(destPath, os.ModePerm)
+
 	// get all files in the directory we are moving to
 	files, _ := ioutil.ReadDir(destPath)
 
@@ -144,7 +182,6 @@ func makeNeededDirectories(destPath string, extensionNames []string) error {
 			return errors.New("File already exists with name of proposed directory " + dirName)
 		} else {
 			os.Mkdir(destPath+dirName, os.ModePerm)
-			fmt.Println("Created directory " + dirName)
 			// make the directory
 		}
 	}
