@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-// TODO Make the parent folder with format of year_month_dayGivenName ie 22_5_27_TestFolderName
-// ---- Get Date + Arg1... if no arg 1 ask for the name
 // TODO Ability for config paths to have / at the end or not. Just a little smarter
 // TODO break project into files that make sense
 // TODO add config items for naming types and add ability to add --option to replace config with
@@ -32,7 +30,7 @@ func main() {
 		return
 	}
 
-	// get parent folder and source folder from config
+	// Get parent folder and source folder from config
 	sourcePath := config.Source
 	destinationPath := config.Destination
 
@@ -50,7 +48,7 @@ func main() {
 	// Get fileTypes for directories and make in destination directory
 	fileTypes := getExtensionsFound(files)
 
-	err2 := makeNeededDirectories(destinationPath+"/", fileTypes, folderName)
+	err2 := makeNeededDirectories(destinationPath, fileTypes, folderName)
 
 	if err2 != nil {
 		fmt.Println("Error making directories...")
@@ -64,18 +62,18 @@ func main() {
 		if mode.IsRegular() {
 			dirName, _ := getTypeNameFromExtension(filepath.Ext(sourceFile.Name()))
 
-			oldPath := sourcePath + "/" + sourceFile.Name()
+			sourceFilePath := sourcePath + "/" + sourceFile.Name()
 
-			newPath := destinationPath + "/" + folderName + "/" + dirName + "/" + sourceFile.Name()
+			destFilePath := destinationPath + "/" + folderName + "/" + dirName + "/" + sourceFile.Name()
 
-			sourceContents, err := ioutil.ReadFile(oldPath)
+			sourceContents, err := ioutil.ReadFile(sourceFilePath)
 
 			if err != nil {
 				fmt.Println("Error reading file contents...", sourceFile.Name())
 				continue
 			}
 
-			err = ioutil.WriteFile(newPath, sourceContents, os.ModePerm)
+			err = ioutil.WriteFile(destFilePath, sourceContents, os.ModePerm)
 
 			if err != nil {
 				fmt.Println("Error writing file contents...", sourceFile.Name())
@@ -145,7 +143,7 @@ func contains(arr []string, value string) bool {
 
 func makeNeededDirectories(destPath string, extensionNames []string, folderName string) error {
 
-	destPath = destPath + folderName + "/"
+	destPath = destPath + "/" + folderName + "/"
 
 	os.Mkdir(destPath, os.ModePerm)
 
