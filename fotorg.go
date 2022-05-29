@@ -10,12 +10,20 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/widget"
 )
 
 // TODO Ability for config paths to have / at the end or not. Just a little smarter
 // TODO break project into files that make sense
 // TODO add config items for naming types and add ability to add --option to replace config with
 // TODO clean up all this bogus string concatinations
+// TODO add gui
 
 type Config struct {
 	Source      string `json:"source"`
@@ -23,25 +31,128 @@ type Config struct {
 }
 
 func main() {
-	config, err := getConfig()
+	args := os.Args
+
+	config, _, err := getConfig()
 
 	if err != nil {
 		fmt.Println("Error reading config file...")
 		return
 	}
 
+	// TODO how to handle args more elegantly
+	if contains(args, "--no-window") {
+		organizeFiles(args, config)
+	} else {
+		runGuiApplication(config)
+	}
+}
+
+func writeConfig(path string, propertyName string) {
+	config, configPath, err := getConfig()
+
+	if err != nil {
+		fmt.Println("Error getting config in writeConfig function")
+		return
+	}
+
+	if propertyName != "source" {
+		config.Source = path
+	} else {
+		config.Destination = path
+	}
+
+	encodedConfig, _ := json.Marshal(config)
+
+	err = ioutil.WriteFile(configPath, encodedConfig, os.ModePerm)
+
+	if err != nil {
+		fmt.Println("Error getting config in writeConfig function")
+		return
+	}
+}
+
+func runGuiApplication(config Config) {
+	a := app.New()
+	w := a.NewWindow("Fotorg")
+	w.Resize(fyne.NewSize(800, 800))
+
+	// Create source element
+	sourceLabel := widget.NewLabel("source: " + config.Source)
+
+	sourceBtn := widget.NewButton("Choose Source Directory", func() {
+		openPathDialog(w, "source",
+			func(uri string) {
+				fmt.Println("callback " + uri)
+				sourceLabel.SetText("source: " + uri)
+			})
+	})
+
+	sourceBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+
+	sourceContainer := fyne.NewContainer(sourceLabel, sourceBtn)
+
+	sourceContainer.Layout = layout.NewVBoxLayout()
+
+	// Create destination element
+	destLabel := widget.NewLabel("destination: " + config.Destination)
+
+	destBtn := widget.NewButton("Choose Destination Directory", func() {
+		openPathDialog(w, "destination",
+			func(uri string) {
+				fmt.Println("callback " + uri)
+				destLabel.SetText("destination: " + uri)
+			})
+	})
+
+	destBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+
+	destinationContainer := fyne.NewContainer(destLabel, destBtn)
+
+	destinationContainer.Layout = layout.NewVBoxLayout()
+
+	split := container.NewHSplit(
+		sourceContainer,
+		destinationContainer,
+	)
+
+	actionButton := widget.NewButton("Organize", func() {
+		fmt.Println("Moving files!")
+	})
+
+	parentContainer := container.NewVSplit(split, actionButton)
+
+	w.SetContent(parentContainer)
+
+	w.ShowAndRun()
+}
+
+func openPathDialog(w fyne.Window, configProperty string, callback func(uri string)) {
+	d := dialog.FileDialog(*dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			writeConfig(uri.Path(), configProperty)
+			callback(uri.Path())
+		}
+	}, w))
+
+	d.Show()
+}
+
+////
+func organizeFiles(args []string, config Config) {
 	// Get parent folder and source folder from config
 	sourcePath := config.Source
 	destinationPath := config.Destination
 
-	args := os.Args
 	folderName := buildParentFolderName(args)
 
 	// Get Files in watched directory
 	files, err1 := ioutil.ReadDir(sourcePath)
 
 	if err1 != nil {
-		fmt.Println("Error reading files from source directory...")
+		fmt.Println("")
 		return
 	}
 
@@ -187,7 +298,7 @@ func makeNeededDirectories(destPath string, extensionNames []string, folderName 
 	return nil
 }
 
-func getConfig() (Config, error) {
+func getConfig() (Config, string, error) {
 	homeDir, _ := os.UserHomeDir()
 
 	configPath := homeDir + "/.config/fotorg/config.json"
@@ -195,24 +306,12 @@ func getConfig() (Config, error) {
 	config, err := ioutil.ReadFile(configPath)
 
 	if err != nil {
-		return Config{}, err
+		return Config{}, "", err
 	}
 
 	data := Config{}
 
 	_ = json.Unmarshal([]byte(config), &data)
 
-	return data, nil
+	return data, configPath, nil
 }
-
-// func sourcePath() string {
-// 	homeDir, _ := os.UserHomeDir()
-// 	relativePath := "/test-go/"
-// 	return homeDir + relativePath
-// }
-
-// func destinationPath() string {
-// 	homeDir, _ := os.UserHomeDir()
-// 	relativePath := "/test-go-move-to/"
-// 	return homeDir + relativePath
-// }
