@@ -24,6 +24,7 @@ import (
 // TODO add config items for naming types and add ability to add --option to replace config with
 // TODO clean up all this bogus string concatinations
 // TODO add gui
+// TODO instead of args how can we use fyne to get the label that we need
 
 type Config struct {
 	Source      string `json:"source"`
@@ -72,13 +73,13 @@ func writeConfig(path string, propertyName string) {
 	}
 }
 
-func runGuiApplication(config Config) {
+func runGuiApplication(initialConfig Config) {
 	a := app.New()
 	w := a.NewWindow("Fotorg")
 	w.Resize(fyne.NewSize(800, 800))
 
 	// Create source element
-	sourceLabel := widget.NewLabel("source: " + config.Source)
+	sourceLabel := widget.NewLabel("source: " + initialConfig.Source)
 
 	sourceBtn := widget.NewButton("Choose Source Directory", func() {
 		openPathDialog(w, "source",
@@ -95,7 +96,7 @@ func runGuiApplication(config Config) {
 	sourceContainer.Layout = layout.NewVBoxLayout()
 
 	// Create destination element
-	destLabel := widget.NewLabel("destination: " + config.Destination)
+	destLabel := widget.NewLabel("destination: " + initialConfig.Destination)
 
 	destBtn := widget.NewButton("Choose Destination Directory", func() {
 		openPathDialog(w, "destination",
@@ -118,6 +119,7 @@ func runGuiApplication(config Config) {
 
 	actionButton := widget.NewButton("Organize", func() {
 		fmt.Println("Moving files!")
+		// organizeFiles(getConf)
 	})
 
 	parentContainer := container.NewVSplit(split, actionButton)
@@ -194,6 +196,7 @@ func organizeFiles(args []string, config Config) {
 	}
 }
 
+// TODO instead of args how can we use fyne to get the label that we need
 func buildParentFolderName(args []string) string {
 	date := time.Now().Format("06_01_02_")
 
