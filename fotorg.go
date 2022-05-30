@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,7 +44,8 @@ func main() {
 
 	// TODO how to handle args more elegantly
 	if contains(args, "--no-window") {
-		organizeFiles(args, config)
+		destFolderName := buildParentFolderName(args)
+		organizeFiles(destFolderName, config)
 	} else {
 		runGuiApplication(config)
 	}
@@ -84,7 +86,6 @@ func runGuiApplication(initialConfig Config) {
 	sourceBtn := widget.NewButton("Choose Source Directory", func() {
 		openPathDialog(w, "source",
 			func(uri string) {
-				fmt.Println("callback " + uri)
 				sourceLabel.SetText("source: " + uri)
 			})
 	})
@@ -101,7 +102,6 @@ func runGuiApplication(initialConfig Config) {
 	destBtn := widget.NewButton("Choose Destination Directory", func() {
 		openPathDialog(w, "destination",
 			func(uri string) {
-				fmt.Println("callback " + uri)
 				destLabel.SetText("destination: " + uri)
 			})
 	})
@@ -112,14 +112,14 @@ func runGuiApplication(initialConfig Config) {
 
 	destinationContainer.Layout = layout.NewVBoxLayout()
 
+	// Created split with source on left and destination on right
 	split := container.NewHSplit(
 		sourceContainer,
 		destinationContainer,
 	)
 
-	actionButton := widget.NewButton("Organize", func() {
-		fmt.Println("Moving files!")
-		// organizeFiles(getConf)
+	actionButton := widget.NewButton("Do the thing", func() {
+		onClick(a)
 	})
 
 	parentContainer := container.NewVSplit(split, actionButton)
@@ -127,6 +127,33 @@ func runGuiApplication(initialConfig Config) {
 	w.SetContent(parentContainer)
 
 	w.ShowAndRun()
+}
+
+func onClick(a fyne.App) {
+	dialogWindow := a.NewWindow("FolderName")
+	dialogWindow.Resize(fyne.NewSize(400, 300))
+
+	folderName := widget.NewEntry()
+	item := widget.NewFormItem("Folder Name", folderName)
+	item.Widget.Resize(dialogWindow.Canvas().Size())
+
+	form := &widget.Form{
+		Items: []*widget.FormItem{item},
+		OnSubmit: func() {
+			log.Println("Form submitted:", item.Text)
+			dialogWindow.Close()
+		},
+	}
+	// form := widget.NewForm("Parent Folder Name", "Create", "Cancel", formItems, func(bool) { return }, dialogWindow)
+
+	c := fyne.NewContainer(form)
+
+	dialogWindow.SetContent(c)
+
+	dialogWindow.Show()
+
+	return
+
 }
 
 func openPathDialog(w fyne.Window, configProperty string, callback func(uri string)) {
@@ -142,13 +169,10 @@ func openPathDialog(w fyne.Window, configProperty string, callback func(uri stri
 	d.Show()
 }
 
-////
-func organizeFiles(args []string, config Config) {
+func organizeFiles(destFolderName string, config Config) {
 	// Get parent folder and source folder from config
 	sourcePath := config.Source
 	destinationPath := config.Destination
-
-	folderName := buildParentFolderName(args)
 
 	// Get Files in watched directory
 	files, err1 := ioutil.ReadDir(sourcePath)
@@ -161,7 +185,7 @@ func organizeFiles(args []string, config Config) {
 	// Get fileTypes for directories and make in destination directory
 	fileTypes := getExtensionsFound(files)
 
-	err2 := makeNeededDirectories(destinationPath, fileTypes, folderName)
+	err2 := makeNeededDirectories(destinationPath, fileTypes, destFolderName)
 
 	if err2 != nil {
 		fmt.Println("Error making directories...")
@@ -177,7 +201,7 @@ func organizeFiles(args []string, config Config) {
 
 			sourceFilePath := sourcePath + "/" + sourceFile.Name()
 
-			destFilePath := destinationPath + "/" + folderName + "/" + dirName + "/" + sourceFile.Name()
+			destFilePath := destinationPath + "/" + destFolderName + "/" + dirName + "/" + sourceFile.Name()
 
 			sourceContents, err := ioutil.ReadFile(sourceFilePath)
 
