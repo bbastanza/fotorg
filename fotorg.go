@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -21,7 +22,6 @@ import (
 
 // TODO break project into files that make sense
 // TODO add config items for naming types and add ability to add --option to replace config with
-// TODO clean up all this bogus string concatinations/ make windows fs compatable
 // TODO Ability for config paths to have / at the end or not. Just a little smarter
 
 type Config struct {
@@ -141,7 +141,6 @@ func openPathDialog(w fyne.Window, configProperty string, callback func(uri stri
 			} else if uri == nil {
 				return
 			} else {
-				fmt.Println(configProperty, uri.Path())
 				writeConfig(uri.Path(), configProperty)
 				callback(uri.Path())
 			}
@@ -157,10 +156,20 @@ func organizeFiles(destFolderName string, config Config) {
 	sourcePath := config.Source
 	destinationPath := config.Destination
 
-	// Get Files in watched directory
-	files, err1 := ioutil.ReadDir(sourcePath)
+	OS := runtime.GOOS
 
-	if err1 != nil {
+	separator := "/"
+
+	if OS == "windows" {
+		separator = "\""
+		sourcePath = filepath.FromSlash(sourcePath)
+		destinationPath = filepath.FromSlash(destinationPath)
+	}
+
+	// Get Files in watched directory
+	files, err := ioutil.ReadDir(sourcePath)
+
+	if err != nil {
 		fmt.Println("")
 		return
 	}
@@ -168,9 +177,9 @@ func organizeFiles(destFolderName string, config Config) {
 	// Get fileTypes for directories and make in destination directory
 	fileTypes := getExtensionsFound(files)
 
-	err2 := makeNeededDirectories(destinationPath, fileTypes, destFolderName)
+	err = makeNeededDirectories(destinationPath, fileTypes, destFolderName)
 
-	if err2 != nil {
+	if err != nil {
 		fmt.Println("Error making directories...")
 		return
 	}
@@ -180,13 +189,21 @@ func organizeFiles(destFolderName string, config Config) {
 		// check that the file is a regular file
 		mode := sourceFile.Mode()
 		if mode.IsRegular() {
-			dirName, _ := getTypeNameFromExtension(filepath.Ext(sourceFile.Name()))
+			dirName, _ := removeDotSafely(filepath.Ext(sourceFile.Name()))
 
-			x := os.PathSeparator
+			sourceFilePath :=
+				sourcePath +
+					separator +
+					sourceFile.Name()
 
-			sourceFilePath := sourcePath + "/" + sourceFile.Name()
-
-			destFilePath := destinationPath + "/" + destFolderName + "/" + dirName + "/" + sourceFile.Name()
+			destFilePath :=
+				destinationPath +
+					separator +
+					destFolderName +
+					separator +
+					dirName +
+					separator +
+					sourceFile.Name()
 
 			sourceContents, err := ioutil.ReadFile(sourceFilePath)
 
@@ -226,7 +243,7 @@ func buildParentFolderName(args []string) string {
 	}
 }
 
-func getTypeNameFromExtension(ext string) (string, error) {
+func removeDotSafely(ext string) (string, error) {
 	if len(ext) < 2 {
 		return ext, errors.New("Extension too short " + ext)
 	}
@@ -244,7 +261,7 @@ func getExtensionsFound(files []fs.FileInfo) []string {
 			continue
 		}
 
-		ext, _ := getTypeNameFromExtension(fullExtension)
+		ext, _ := removeDotSafely(fullExtension)
 
 		if !contains(fileExtensionsFound, ext) {
 			fileExtensionsFound = append(fileExtensionsFound, ext)
@@ -264,8 +281,13 @@ func contains(arr []string, value string) bool {
 }
 
 func makeNeededDirectories(destPath string, extensionNames []string, folderName string) error {
-
 	destPath = destPath + "/" + folderName + "/"
+
+	OS := runtime.GOOS
+
+	if OS == "windows" {
+		destPath = filepath.FromSlash(destPath)
+	}
 
 	os.Mkdir(destPath, os.ModePerm)
 
@@ -298,11 +320,11 @@ func makeNeededDirectories(destPath string, extensionNames []string, folderName 
 	}
 
 	for _, dirName := range directoriesToMake {
+		// check for a file with the same name as the extension
 		if contains(currentNonDirList, dirName) {
 			return errors.New("File already exists with name of proposed directory " + dirName)
 		} else {
 			os.Mkdir(destPath+dirName, os.ModePerm)
-			// make the directory
 		}
 	}
 
@@ -310,9 +332,15 @@ func makeNeededDirectories(destPath string, extensionNames []string, folderName 
 }
 
 func getConfig() (Config, string, error) {
+	OS := runtime.GOOS
+
 	homeDir, _ := os.UserHomeDir()
 
 	configPath := homeDir + "/.config/fotorg/config.json"
+
+	if OS == "windows" {
+		configPath = filepath.FromSlash(configPath)
+	}
 
 	config, err := ioutil.ReadFile(configPath)
 
