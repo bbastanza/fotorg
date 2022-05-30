@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,12 +19,10 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// TODO Ability for config paths to have / at the end or not. Just a little smarter
 // TODO break project into files that make sense
 // TODO add config items for naming types and add ability to add --option to replace config with
-// TODO clean up all this bogus string concatinations
-// TODO add gui
-// TODO instead of args how can we use fyne to get the label that we need
+// TODO clean up all this bogus string concatinations/ make windows fs compatable
+// TODO Ability for config paths to have / at the end or not. Just a little smarter
 
 type Config struct {
 	Source      string `json:"source"`
@@ -59,7 +56,7 @@ func writeConfig(path string, propertyName string) {
 		return
 	}
 
-	if propertyName != "source" {
+	if propertyName == "source" {
 		config.Source = path
 	} else {
 		config.Destination = path
@@ -81,12 +78,12 @@ func runGuiApplication(initialConfig Config) {
 	w.Resize(fyne.NewSize(800, 800))
 
 	// Create source element
-	sourceLabel := widget.NewLabel("source: " + initialConfig.Source)
+	sourceLabel := widget.NewLabel(initialConfig.Source)
 
-	sourceBtn := widget.NewButton("Choose Source Directory", func() {
+	sourceBtn := widget.NewButton("source", func() {
 		openPathDialog(w, "source",
 			func(uri string) {
-				sourceLabel.SetText("source: " + uri)
+				sourceLabel.SetText(uri)
 			})
 	})
 
@@ -97,12 +94,12 @@ func runGuiApplication(initialConfig Config) {
 	sourceContainer.Layout = layout.NewVBoxLayout()
 
 	// Create destination element
-	destLabel := widget.NewLabel("destination: " + initialConfig.Destination)
+	destLabel := widget.NewLabel(initialConfig.Destination)
 
-	destBtn := widget.NewButton("Choose Destination Directory", func() {
+	destBtn := widget.NewButton("destinaiton", func() {
 		openPathDialog(w, "destination",
 			func(uri string) {
-				destLabel.SetText("destination: " + uri)
+				destLabel.SetText(uri)
 			})
 	})
 
@@ -113,58 +110,44 @@ func runGuiApplication(initialConfig Config) {
 	destinationContainer.Layout = layout.NewVBoxLayout()
 
 	// Created split with source on left and destination on right
-	split := container.NewHSplit(
+	folderNameInput := widget.NewEntry()
+	folderNameInput.SetText(time.Now().Format("06_01_02_"))
+
+	form := &widget.Form{
+		Items: []*widget.FormItem{ // we can specify items in the constructor
+			{Text: "Folder Name", Widget: folderNameInput}},
+		OnSubmit: func() { // optional, handle form submission
+			config, _, _ := getConfig()
+			organizeFiles(folderNameInput.Text, config)
+		},
+	}
+
+	content := container.NewVBox(
 		sourceContainer,
 		destinationContainer,
+		form,
 	)
 
-	actionButton := widget.NewButton("Do the thing", func() {
-		onClick(a)
-	})
-
-	parentContainer := container.NewVSplit(split, actionButton)
-
-	w.SetContent(parentContainer)
+	w.SetContent(content)
 
 	w.ShowAndRun()
 }
 
-func onClick(a fyne.App) {
-	dialogWindow := a.NewWindow("FolderName")
-	dialogWindow.Resize(fyne.NewSize(400, 300))
-
-	folderName := widget.NewEntry()
-	item := widget.NewFormItem("Folder Name", folderName)
-	item.Widget.Resize(dialogWindow.Canvas().Size())
-
-	form := &widget.Form{
-		Items: []*widget.FormItem{item},
-		OnSubmit: func() {
-			log.Println("Form submitted:", item.Text)
-			dialogWindow.Close()
-		},
-	}
-	// form := widget.NewForm("Parent Folder Name", "Create", "Cancel", formItems, func(bool) { return }, dialogWindow)
-
-	c := fyne.NewContainer(form)
-
-	dialogWindow.SetContent(c)
-
-	dialogWindow.Show()
-
-	return
-
-}
-
 func openPathDialog(w fyne.Window, configProperty string, callback func(uri string)) {
-	d := dialog.FileDialog(*dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
-		if err != nil {
-			fmt.Println(err.Error())
-		} else {
-			writeConfig(uri.Path(), configProperty)
-			callback(uri.Path())
-		}
-	}, w))
+	d := dialog.FileDialog(
+		*dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil {
+				fmt.Println(err.Error())
+			} else if uri == nil {
+				return
+			} else {
+				fmt.Println(configProperty, uri.Path())
+				writeConfig(uri.Path(), configProperty)
+				callback(uri.Path())
+			}
+		}, w))
+
+	d.Resize(w.Content().Size())
 
 	d.Show()
 }
@@ -199,6 +182,8 @@ func organizeFiles(destFolderName string, config Config) {
 		if mode.IsRegular() {
 			dirName, _ := getTypeNameFromExtension(filepath.Ext(sourceFile.Name()))
 
+			x := os.PathSeparator
+
 			sourceFilePath := sourcePath + "/" + sourceFile.Name()
 
 			destFilePath := destinationPath + "/" + destFolderName + "/" + dirName + "/" + sourceFile.Name()
@@ -220,7 +205,6 @@ func organizeFiles(destFolderName string, config Config) {
 	}
 }
 
-// TODO instead of args how can we use fyne to get the label that we need
 func buildParentFolderName(args []string) string {
 	date := time.Now().Format("06_01_02_")
 
