@@ -161,7 +161,7 @@ func organizeFiles(destFolderName string, config Config) {
 	separator := "/"
 
 	if OS == "windows" {
-		separator = "\""
+		separator = "\\"
 		sourcePath = filepath.FromSlash(sourcePath)
 		destinationPath = filepath.FromSlash(destinationPath)
 	}
@@ -208,6 +208,9 @@ func organizeFiles(destFolderName string, config Config) {
 			sourceContents, err := ioutil.ReadFile(sourceFilePath)
 
 			if err != nil {
+				fmt.Println(separator)
+				fmt.Println(sourceFilePath)
+				fmt.Println(err.Error())
 				fmt.Println("Error reading file contents...", sourceFile.Name())
 				continue
 			}
