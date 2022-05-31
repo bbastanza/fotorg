@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+// TODO handle errors by showing dialog and write to log file
+// TODO status bar
+// TODO write unit tests/ figure out interfaces and dependency injection
+
+// TODO what do the *Config and the &Config mean ... Pointers???
+// type Config struct {
+//   Enabled      bool
+//   DatabasePath string
+//   Port         string
+// }
+
+// func NewConfig() *Config {
+//   return &Config{
+//     Enabled:      true,
+//     DatabasePath: "./example.db",
+//     Port:         "8000",
+//   }
+// }
+
 func main() {
 	args := os.Args
 
