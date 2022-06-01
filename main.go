@@ -2,18 +2,27 @@ package main
 
 import (
 	"fmt"
+	c "fotorg/project/config"
+	f "fotorg/project/files"
+	h "fotorg/project/helpers"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"fyne.io/fyne"
+	"fyne.io/fyne/app"
+	"fyne.io/fyne/container"
+	"fyne.io/fyne/dialog"
+	"fyne.io/fyne/layout"
+	"fyne.io/fyne/widget"
 )
 
 // TODO handle errors by showing dialog and write to log file
 // TODO status bar
 // TODO write unit tests/ figure out interfaces and dependency injection
-
 // TODO what do the *Config and the &Config mean ... Pointers???
 // type Config struct {
 //   Enabled      bool
@@ -32,28 +41,28 @@ import (
 func main() {
 	args := os.Args
 
-	config, _, err := getConfig()
+	config, _, err := c.GetConfig()
 
 	if err != nil {
 		fmt.Println("Error reading config file...")
 		return
 	}
 
-	if contains(args, "--no-window") {
+	if h.Contains(args, "--no-window") {
 		destFolderName := buildParentFolderName(args)
-		doTheThing(destFolderName, config)
+		DoTheThing(destFolderName, config)
 	} else {
 		runGuiApplication(config)
 	}
 }
 
-func doTheThing(destFolderName string, config Config) {
+func DoTheThing(destFolderName string, config c.Config) {
 
 	sourcePath, destinationPath := getSourceAndDestPathFromConfig(config)
 
-	separator := getSeparator()
+	separator := h.GetSeparator()
 
-	files := readFiles(sourcePath)
+	files := f.ReadFiles(sourcePath)
 
 	makeDirectories(destinationPath, files, destFolderName)
 
@@ -63,7 +72,7 @@ func doTheThing(destFolderName string, config Config) {
 			continue
 		}
 		// check that the file is a regular file
-		dirName, _ := removeDotSafely(filepath.Ext(sourceFile.Name()))
+		dirName, _ := h.RemoveDotSafely(filepath.Ext(sourceFile.Name()))
 
 		sourceFilePath :=
 			sourcePath +
@@ -79,9 +88,9 @@ func doTheThing(destFolderName string, config Config) {
 				separator +
 				sourceFile.Name()
 
-		sourceContents := readFile(sourceFilePath)
+		sourceContents := f.ReadFile(sourceFilePath)
 
-		writeFiles(destFilePath, sourceContents)
+		f.WriteFiles(destFilePath, sourceContents)
 	}
 }
 
@@ -107,7 +116,7 @@ func buildParentFolderName(args []string) string {
 }
 
 func makeDirectories(destPath string, files []fs.FileInfo, folderName string) {
-	extensionNames := getExtensionsFound(files)
+	extensionNames := h.GetExtensionsFound(files)
 
 	destPath = buildDestPath(destPath, folderName)
 
@@ -133,14 +142,14 @@ func makeDirectories(destPath string, files []fs.FileInfo, folderName string) {
 	directoriesToMake := make([]string, 0)
 
 	for _, extension := range extensionNames {
-		if !contains(currentDirList, extension) {
+		if !h.Contains(currentDirList, extension) {
 			directoriesToMake = append(directoriesToMake, extension)
 		}
 	}
 
 	for _, dirName := range directoriesToMake {
 		// check for a file with the same name as the extension
-		if contains(currentNonDirList, dirName) {
+		if h.Contains(currentNonDirList, dirName) {
 			fmt.Println("File already exists with name of proposed directory " + dirName)
 		} else {
 			os.Mkdir(destPath+dirName, os.ModePerm)
@@ -148,7 +157,7 @@ func makeDirectories(destPath string, files []fs.FileInfo, folderName string) {
 	}
 }
 
-func getSourceAndDestPathFromConfig(config Config) (string, string) {
+func getSourceAndDestPathFromConfig(config c.Config) (string, string) {
 	sourcePath := config.Source
 	destinationPath := config.Destination
 
@@ -172,4 +181,83 @@ func buildDestPath(parent string, folderName string) string {
 	}
 
 	return destPath
+}
+
+func runGuiApplication(initialConfig c.Config) {
+	a := app.New()
+	w := a.NewWindow("Fotorg")
+	w.Resize(fyne.NewSize(800, 800))
+
+	// Create source element
+	sourceLabel := widget.NewLabel(initialConfig.Source)
+
+	sourceBtn := widget.NewButton("source", func() {
+		openPathDialog(w, "source",
+			func(uri string) {
+				sourceLabel.SetText(uri)
+			})
+	})
+
+	sourceBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+
+	sourceContainer := fyne.NewContainer(sourceLabel, sourceBtn)
+
+	sourceContainer.Layout = layout.NewVBoxLayout()
+
+	// Create destination element
+	destLabel := widget.NewLabel(initialConfig.Destination)
+
+	destBtn := widget.NewButton("destinaiton", func() {
+		openPathDialog(w, "destination",
+			func(uri string) {
+				destLabel.SetText(uri)
+			})
+	})
+
+	destBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+
+	destinationContainer := fyne.NewContainer(destLabel, destBtn)
+
+	destinationContainer.Layout = layout.NewVBoxLayout()
+
+	// Created split with source on left and destination on right
+	folderNameInput := widget.NewEntry()
+	folderNameInput.SetText(time.Now().Format("06_01_02_"))
+
+	form := &widget.Form{
+		Items: []*widget.FormItem{ // we can specify items in the constructor
+			{Text: "Folder Name", Widget: folderNameInput}},
+		OnSubmit: func() { // optional, handle form submission
+			config, _, _ := c.GetConfig()
+			DoTheThing(folderNameInput.Text, config)
+		},
+	}
+
+	content := container.NewVBox(
+		sourceContainer,
+		destinationContainer,
+		form,
+	)
+
+	w.SetContent(content)
+
+	w.ShowAndRun()
+}
+
+func openPathDialog(w fyne.Window, configProperty string, callback func(uri string)) {
+	d := dialog.FileDialog(
+		*dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil {
+				fmt.Println(err.Error())
+			} else if uri == nil {
+				return
+			} else {
+				c.WriteConfig(uri.Name(), configProperty)
+				callback(uri.Name())
+			}
+		}, w))
+
+	d.Resize(w.Content().Size())
+
+	d.Show()
 }
