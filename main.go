@@ -186,7 +186,7 @@ func buildDestPath(parent string, folderName string) string {
 func runGuiApplication(initialConfig c.Config) {
 	a := app.New()
 	w := a.NewWindow("Fotorg")
-	w.Resize(fyne.NewSize(800, 800))
+	w.Resize(fyne.NewSize(400, 200))
 
 	// Create source element
 	sourceLabel := widget.NewLabel(initialConfig.Source)
@@ -198,11 +198,12 @@ func runGuiApplication(initialConfig c.Config) {
 			})
 	})
 
-	sourceBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+	sourceBtn.Resize(fyne.NewSize(sourceBtn.MinSize().Width, sourceBtn.Size().Height))
+	sourceBtn.Alignment = widget.ButtonAlign(fyne.TextAlignTrailing)
 
 	sourceContainer := fyne.NewContainer(sourceLabel, sourceBtn)
 
-	sourceContainer.Layout = layout.NewVBoxLayout()
+	sourceContainer.Layout = layout.NewGridLayout(2)
 
 	// Create destination element
 	destLabel := widget.NewLabel(initialConfig.Destination)
@@ -214,11 +215,12 @@ func runGuiApplication(initialConfig c.Config) {
 			})
 	})
 
-	destBtn.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+	destBtn.Resize(fyne.NewSize(destBtn.MinSize().Width, destBtn.Size().Height))
+	destBtn.Alignment = widget.ButtonAlign(fyne.TextAlignTrailing)
 
 	destinationContainer := fyne.NewContainer(destLabel, destBtn)
 
-	destinationContainer.Layout = layout.NewVBoxLayout()
+	destinationContainer.Layout = layout.NewGridLayout(2)
 
 	// Created split with source on left and destination on right
 	folderNameInput := widget.NewEntry()
