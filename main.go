@@ -230,8 +230,10 @@ func runGuiApplication(initialConfig c.Config) {
 		Items: []*widget.FormItem{ // we can specify items in the constructor
 			{Text: "Folder Name", Widget: folderNameInput}},
 		OnSubmit: func() { // optional, handle form submission
+			d := dialog.NewProgressInfinite("Progress", "doing the thing", w)
 			config, _, _ := c.GetConfig()
 			DoTheThing(folderNameInput.Text, config)
+			d.Hide()
 		},
 	}
 
