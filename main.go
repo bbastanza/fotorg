@@ -39,8 +39,6 @@ import (
 // }
 
 func main() {
-	args := os.Args
-
 	config, _, err := c.GetConfig()
 
 	if err != nil {
@@ -48,15 +46,10 @@ func main() {
 		return
 	}
 
-	if h.Contains(args, "--no-window") {
-		destFolderName := buildParentFolderName(args)
-		DoTheThing(destFolderName, config)
-	} else {
-		runGuiApplication(config)
-	}
+	runGuiApplication(config)
 }
 
-func DoTheThing(destFolderName string, config c.Config) {
+func DoTheThing(destFolderName string, config c.Config, progress *dialog.ProgressDialog) {
 
 	sourcePath, destinationPath := getSourceAndDestPathFromConfig(config)
 
@@ -65,6 +58,14 @@ func DoTheThing(destFolderName string, config c.Config) {
 	files := f.ReadFiles(sourcePath)
 
 	makeDirectories(destinationPath, files, destFolderName)
+
+	fmt.Println(sourcePath)
+
+	movement := float64(1) / float64(len(files))
+
+	fmt.Println(movement)
+
+	position := float64(1)
 
 	for _, sourceFile := range files {
 
@@ -91,6 +92,10 @@ func DoTheThing(destFolderName string, config c.Config) {
 		sourceContents := f.ReadFile(sourceFilePath)
 
 		f.WriteFiles(destFilePath, sourceContents)
+
+		progress.SetValue(position * movement)
+
+		position += 1
 	}
 }
 
@@ -186,7 +191,7 @@ func buildDestPath(parent string, folderName string) string {
 func runGuiApplication(initialConfig c.Config) {
 	a := app.New()
 	w := a.NewWindow("Fotorg")
-	w.Resize(fyne.NewSize(400, 200))
+	w.Resize(fyne.NewSize(800, 600))
 
 	// Create source element
 	sourceLabel := widget.NewLabel(initialConfig.Source)
@@ -230,9 +235,9 @@ func runGuiApplication(initialConfig c.Config) {
 		Items: []*widget.FormItem{ // we can specify items in the constructor
 			{Text: "Folder Name", Widget: folderNameInput}},
 		OnSubmit: func() { // optional, handle form submission
-			d := dialog.NewProgressInfinite("Progress", "doing the thing", w)
+			d := dialog.NewProgress("Progress", "doing the thing", w)
 			config, _, _ := c.GetConfig()
-			DoTheThing(folderNameInput.Text, config)
+			DoTheThing(folderNameInput.Text, config, d)
 			d.Hide()
 		},
 	}
@@ -249,6 +254,7 @@ func runGuiApplication(initialConfig c.Config) {
 }
 
 func openPathDialog(w fyne.Window, configProperty string, callback func(uri string)) {
+
 	d := dialog.FileDialog(
 		*dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
 			if err != nil {
@@ -256,8 +262,9 @@ func openPathDialog(w fyne.Window, configProperty string, callback func(uri stri
 			} else if uri == nil {
 				return
 			} else {
-				c.WriteConfig(uri.Name(), configProperty)
-				callback(uri.Name())
+				path := uri.String()[7:]
+				c.WriteConfig(path, configProperty)
+				callback(path)
 			}
 		}, w))
 
